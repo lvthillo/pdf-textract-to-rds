@@ -1,0 +1,61 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Postgres Database setup
+Parameters:
+  Username:
+    Description: The master user name for the DB instance.
+    Type: String
+  Password:
+    Description: The master password for the DB instance.
+    Type: String
+  DefaultVPC:
+    Description: The default VPC.
+    Type: String
+    Default: vpc-f1d9fe97
+  DatabaseName:
+    Description: The name of the DB.
+    Type: String
+    Default: InvoiceDB
+Resources:
+  # RDS Postgres DB
+  DBInstance:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
+    Properties:
+      EnableIAMDatabaseAuthentication: true
+      AllocatedStorage: 5
+      DBInstanceClass: db.t2.micro
+      DBName: !Ref DatabaseName
+      Engine: postgres
+      EngineVersion: 10.9
+      MasterUsername: !Ref Username
+      MasterUserPassword: !Ref Password
+      VPCSecurityGroups:
+        - !Ref DataSourceSecurityGroup
+  DataSourceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Open database for access
+      VpcId: !Ref DefaultVPC
+  DSSGIngressRule:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      FromPort: 5432
+      ToPort: 5432
+      GroupId: !Ref DataSourceSecurityGroup
+      IpProtocol: tcp
+      CidrIp: 0.0.0.0/0
+Outputs:
+  DBEndpointAddress:
+    Value: !GetAtt DBInstance.Endpoint.Address
+    Export: 
+      Name: DBEndpointAddress
+  DBName:
+    Value: !Ref DatabaseName
+    Export: 
+      Name: DBName
+  DBUser:
+    Value: !Ref Username
+    Export:
+      Name: DBUser
+  

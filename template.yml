@@ -1,0 +1,186 @@
+Transform: AWS::Serverless-2016-10-31
+Description: SAM Textract Lambda stack
+Parameters:
+  DemoUser:
+    Description: The demo user name to connect to Postgres.
+    Type: String
+  TableName:
+    Description: The RDS Postgres table name.
+    Type: String    
+
+Resources:
+  # Bucket to upload pdfs
+  UploadBucket:
+    Type: AWS::S3::Bucket
+  # Read function will publish to SNS
+  # Write function will subscribe to SNS
+  SNSTopic:
+    Type: AWS::SNS::Topic
+    Properties: 
+      DisplayName: LambdaSNSTopic
+      TopicName: LambdaSNSTopic
+  # Read function triggered by S3 upload
+  # It will publish to SNS
+  ReadFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Runtime: python3.7
+      Handler: index.lambda_handler
+      CodeUri: ./functions/reader
+      Role: !GetAtt ReadLambdaExecutionRole.Arn
+      Events:
+        InvoiceUploadEvent:
+          Type: S3
+          Properties:
+            Bucket: !Ref UploadBucket
+            Events: s3:ObjectCreated:*
+      Environment:
+        Variables:
+          SNSROLEARN: !GetAtt SNSRole.Arn
+          SNSTOPIC: !Ref SNSTopic
+  # Write function
+  WriteFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Runtime: python3.7
+      Handler: index.lambda_handler
+      Layers:
+        - !Ref WriteFunctionDepLayer
+      CodeUri: ./functions/writer
+      Role: !GetAtt WriteLambdaExecutionRole.Arn
+      Environment:
+        Variables:
+          # import values from db stack to write to RDS
+          DBEndPoint: !ImportValue DBEndpointAddress
+          DatabaseName: !ImportValue DBName
+          DBUserName: !Ref DemoUser
+          TableName: !Ref TableName
+  # Dependency layer where we install pg8000
+  WriteFunctionDepLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+        LayerName: write-function-app-dependencies
+        Description: Dependencies for sam app 
+        ContentUri: ./functions/writer/dependencies/
+        CompatibleRuntimes:
+          - python3.7
+        LicenseInfo: 'MIT'
+        RetentionPolicy: Retain
+  # Write Function subscribes to SNS
+  Subscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !GetAtt WriteFunction.Arn
+      Protocol: lambda
+      TopicArn: !Ref SNSTopic
+  # Allow SNS to invoke the Write lambda
+  InvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref WriteFunction
+      Principal: sns.amazonaws.com
+  # Allow textract (used in Read Lambda) to publish to SNS
+  SNSRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - textract.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: '/'
+      Policies:
+      - PolicyName: sns-policy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - sns:publish
+            Resource: !Ref SNSTopic
+  # Role assumed by Read lambda
+  ReadLambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: '/'
+      Policies:
+      - PolicyName: cloudwatch-policy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - logs:*
+            Resource: arn:aws:logs:*:*:*
+      - PolicyName: textract-policy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - textract:*
+            Resource: '*'
+      - PolicyName: s3-policy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - s3:GetObject
+            # short workaround to solve circular dependency with bucket
+            Resource: '*'
+  # Role assumed by Write lambda
+  WriteLambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: '/'
+      Policies:
+      - PolicyName: cloudwatch-policy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - logs:*
+            Resource: arn:aws:logs:*:*:*
+      # Necessary for get_document_analysis
+      - PolicyName: textract-policy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - textract:*
+            Resource: '*'
+      # Use Access Management (IAM) database authentication
+      - PolicyName: rds-policy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - rds-db:connect
+            Resource: !Sub 'arn:aws:rds-db:eu-west-1:${AWS::AccountId}:dbuser:*/${DemoUser}'
