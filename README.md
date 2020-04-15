@@ -19,8 +19,7 @@ $ psql -h xxx.xxx.rds.amazonaws.com -p 5432 -U lvthillo -d InvoiceDB  -W -a -f d
 3) Deploy SAM stack. Replace with your bucket.
 ```
 $ sam build
-$ sam package --template-file ./template.yml --output-template-file output.yml --s3-bucket xxx-bucket
-$ sam deploy --template-file ./output.yml --parameter-overrides DemoUser=demouser TableName=invoices --stack-name textract --capabilities CAPABILITY_IAM
+$ sam deploy --template-file .aws-sam/build/template.yaml --parameter-overrides DemoUser=demouser TableName=invoices --stack-name textract --capabilities CAPABILITY_IAM --s3-bucket demo-lvthillo-bucket
 ```
 
 More details can be found [here](https://medium.com/@lvthillo/write-pdf-data-to-a-relational-database-using-amazon-textract-3b0e6bc3a390?sk=25c02c34e16f401f608d0e6ebb2b9673).
