@@ -8,6 +8,10 @@ Parameters:
     Description: The RDS Postgres table name.
     Type: String    
 
+Globals:
+  Function:
+    Timeout: 60
+
 Resources:
   # Bucket to upload pdfs
   UploadBucket:
