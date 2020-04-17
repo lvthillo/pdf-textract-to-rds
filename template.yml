@@ -183,4 +183,4 @@ Resources:
           - Effect: Allow
             Action:
             - rds-db:connect
-            Resource: !Sub 'arn:aws:rds-db:eu-west-1:${AWS::AccountId}:dbuser:*/${DemoUser}'
+            Resource: !Sub 'arn:aws:rds-db:${AWS::Region}:${AWS::AccountId}:dbuser:*/${DemoUser}'
