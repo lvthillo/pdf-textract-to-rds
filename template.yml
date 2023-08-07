@@ -28,7 +28,7 @@ Resources:
   ReadFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Runtime: python3.7
+      Runtime: python3.10
       Handler: index.lambda_handler
       CodeUri: ./functions/reader
       Role: !GetAtt ReadLambdaExecutionRole.Arn
@@ -46,10 +46,8 @@ Resources:
   WriteFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Runtime: python3.7
+      Runtime: python3.10
       Handler: index.lambda_handler
-      Layers:
-        - !Ref WriteFunctionDepLayer
       CodeUri: ./functions/writer
       Role: !GetAtt WriteLambdaExecutionRole.Arn
       Environment:
@@ -59,17 +57,6 @@ Resources:
           DatabaseName: !ImportValue DBName
           DBUserName: !Ref DemoUser
           TableName: !Ref TableName
-  # Dependency layer where we install pg8000
-  WriteFunctionDepLayer:
-    Type: AWS::Serverless::LayerVersion
-    Properties:
-        LayerName: write-function-app-dependencies
-        Description: Dependencies for sam app 
-        ContentUri: ./functions/writer/dependencies/
-        CompatibleRuntimes:
-          - python3.7
-        LicenseInfo: 'MIT'
-        RetentionPolicy: Retain
   # Write Function subscribes to SNS
   Subscription:
     Type: AWS::SNS::Subscription

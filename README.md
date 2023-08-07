@@ -6,9 +6,9 @@ This demo project will deploy a Textract Demo Project. Textract will read a mult
 
 ### Steps to deploy the demo project
 
-1) Deploy RDS Postgres database.
+1) Deploy RDS Postgres database. Define your VPC.
 ```
-$ aws cloudformation create-stack --stack-name db --template-body file://db/postgres.yml --parameters ParameterKey=Username,ParameterValue=lvthillo ParameterKey=Password,ParameterValue=notsupersecret
+$ aws cloudformation create-stack --stack-name db --template-body file://db/postgres.yml --parameters ParameterKey=Username,ParameterValue=lvthillo ParameterKey=Password,ParameterValue=notsupersecret ParameterKey=DefaultVPC,ParameterValue=vpc-e4970e82
 ```
 
 2) Execute initial SQL script to create table and demo-user. Replace the connection URL.
